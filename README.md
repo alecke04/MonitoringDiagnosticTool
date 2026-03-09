@@ -23,13 +23,13 @@ A self-contained monitoring and diagnostics tool that provides routine health ch
 MonitoringDiagnosticTool/
 │
 ├── README.md
-├── docs/                            # Additional documentation
+├── docs/                             # Additional documentation
 │   ├── setup_guide.md                   
-│   ├── SRS.md                           # Software Requirements Specification
-│   ├──SDS.md                           # Software Design Specification
-│   ├── CHANGELOG.md                     # Revision history for SDS & SRS
-│   ├── requirements.txt                 # Python dependencies
-│   └── .env.example                     # Example environment variables (SMTP credentials)
+│   ├── SRS.md                        # Software Requirements Specification
+│   ├──SDS.md                         # Software Design Specification
+│   ├── CHANGELOG.md                  # Revision history for SDS & SRS
+│   ├── requirements.txt              # Python dependencies
+│   └── .env.example                  # Example environment variables (SMTP credentials)
 ├── .gitignore                       
 │
 ├── src/                             # Source code folder
