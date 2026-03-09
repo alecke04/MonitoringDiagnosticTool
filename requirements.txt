@@ -1,0 +1,14 @@
+# Requirements — Pending Team Approval
+# Uncomment the lines below once approved by all team members.
+
+# HTTP requests for server availability checks and RTT measurement
+# requests>=2.31.0
+
+# Load SMTP credentials and config from .env file
+# python-dotenv>=1.0.0
+
+# AES-256 encrypted, password-protected ZIP archives for reports
+# pyzipper>=0.3.6
+
+# Schedule monitoring cycles at configurable intervals
+# schedule>=1.2.0
