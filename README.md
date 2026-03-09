@@ -22,15 +22,17 @@ A self-contained monitoring and diagnostics tool that provides routine health ch
 ```
 MonitoringDiagnosticTool/
 │
-├── README.md                        # Project overview and setup instructions
-├── SRS.md                           # Software Requirements Specification
-├── SDS.md                           # Software Design Specification
-├── CHANGELOG.md                     # Revision history for SDS & SRS
-├── requirements.txt                 # Python dependencies
-├── .env.example                     # Example environment variables (SMTP credentials)
-├── .gitignore                       # Git ignore rules
+├── README.md
+├── docs/                            # Additional documentation
+│   ├── setup_guide.md                   
+│   ├── SRS.md                           # Software Requirements Specification
+│   ├──SDS.md                           # Software Design Specification
+│   ├── CHANGELOG.md                     # Revision history for SDS & SRS
+│   ├── requirements.txt                 # Python dependencies
+│   └── .env.example                     # Example environment variables (SMTP credentials)
+├── .gitignore                       
 │
-├── src/                             # Source code
+├── src/                             # Source code folder
 │   ├── __init__.py
 │   ├── main.py                      # Application entry point
 │   ├── monitoring/                  # Monitoring module
@@ -85,7 +87,7 @@ MonitoringDiagnosticTool/
 │   └── .gitkeep
 │
 ├── docs/                            # Additional documentation
-│   └── setup_guide.md               # Detailed setup and configuration guide
+│   └── setup_guide.md               
 │
 └── documentation_logs/              # Team work logs
     ├── Alec/
@@ -96,12 +98,12 @@ MonitoringDiagnosticTool/
 
 ---
 
-## Prerequisites
+## Requirements
 
 - **Python 3.10+**
 - **SQLite 3** (bundled with Python)
 - **Internet connectivity** for monitoring and email delivery
-- **SMTP-compatible email account** (e.g., Gmail with App Password)
+- **SMTP-compatible email account** 
 
 **Supported Operating Systems:**
 - Windows 10/11
