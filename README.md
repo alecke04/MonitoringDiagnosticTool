@@ -86,8 +86,6 @@ MonitoringDiagnosticTool/
 ├── reports/                         # Generated reports (gitignored)
 │   └── .gitkeep
 │
-├── docs/                            # Additional documentation
-│   └── setup_guide.md               
 │
 └── documentation_logs/              # Team work logs
     ├── Alec/
