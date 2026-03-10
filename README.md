@@ -126,12 +126,12 @@ MonitoringDiagnosticTool/
 
 3. **Install dependencies:**
    ```bash
-   pip install -r requirements.txt
+   pip install -r docs/requirements.txt
    ```
 
 4. **Configure environment variables:**
    ```bash
-   cp .env.example .env
+   cp docs/.env.example .env
    ```
    Edit `.env` with your SMTP credentials and report password:
    ```env
@@ -199,8 +199,8 @@ All monitoring data is stored locally in an SQLite database. When a failure is d
 
 | Document | Description |
 |---|---|
-| [SRS.md](SRS.md) | Software Requirements Specification — functional and nonfunctional requirements |
-| [SDS.md](SDS.md) | Software Design Specification — architecture, class diagrams, database design, algorithms |
+| [SRS.md](docs/SRS.md) | Software Requirements Specification — functional and nonfunctional requirements |
+| [SDS.md](docs/SDS.md) | Software Design Specification — architecture, class diagrams, database design, algorithms |
 
 ---
 
