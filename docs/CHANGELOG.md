@@ -33,8 +33,6 @@ This document logs all changes made to the Software Design Specification (SDS) a
 - **Section 4.3 — Sequence Diagram:** Added two full sequence diagrams:
   - Scenario 1: Successful Monitoring Cycle (No Errors)
   - Scenario 2: Server Down — Failure Notification Flow
-- **Section 4.4 — State Chart Diagram:** Added complete state machine with 7 states (IDLE, CHECKING, DIAGNOSING, RETRYING, HEALTHY, ALERTING, NOTIFIED) and all transitions
-
 
 ### Database Design Fixes
 - Reformatted all table definitions into proper column/type/constraint tables
