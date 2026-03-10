@@ -490,13 +490,23 @@ END PROCEDURE
 ```
 PROCEDURE waitRetryAvailability(server: WebServer) → AvailResult
     FOR attempt FROM 1 TO maxRetries:
-        WAIT(retryDelayMinutes * 60 seconds)
+        waitSeconds ← (retryDelayMinutes * 60) / attempt  -- decreasing interval each retry
+        WAIT(waitSeconds)
         result ← checkAvailability(server)
         IF result.isUp THEN
             RETURN result
         END IF
     END FOR
     RETURN AvailResult(isUp=FALSE, httpCode=404, httpDescript="Server unreachable after retries")
+END PROCEDURE
+```
+
+#### `MonitoringSystem.generateSendReport(server, failure)`
+
+```
+PROCEDURE generateSendReport(server: WebServer, failure: AvailResult)
+    history ← db.getRecent(number=50, server=server)
+    notificationService.notifyFailure(server, history, failure)
 END PROCEDURE
 ```
 
@@ -555,6 +565,7 @@ PROCEDURE saveResult(server: WebServer, availability: AvailResult, rtt: RTTResul
 
     RETURN runId
 END PROCEDURE
+
 ```
 
 ---
