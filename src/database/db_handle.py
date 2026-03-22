@@ -1,8 +1,9 @@
 # DatabaseHandle — all SQLite read/write operations
 # Single class responsible for every interaction with monitor.db
 
-# TODO: import sqlite3, os
-# TODO: from src.models import WebServer, MonitorHistory, MonitorRun
+import sqlite3, os, statistics
+from src.models import WebServer, MonitorHistory, MonitorRun
+
 
 
 class DatabaseHandle:
@@ -14,17 +15,18 @@ class DatabaseHandle:
     """
 
     def __init__(self, dbPath: str):
-        # TODO: assign self.dbPath = dbPath
-        # TODO: call self._init_db() to create tables if they don't exist
+        self.dbPath = dbPath #Calls path for database
+        self._init_db() #calls table creation if not exists
         pass
 
     def _init_db(self) -> None:
-        """
-        Reads and executes schema.sql to initialize all tables
-        if the database file doesn't already exist.
-        # TODO: open connection, read schema.sql, executescript, close
-        """
-        pass
+        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql") #Finds location of schema.sql to avoid duplication 
+        conn = sqlite3.connect(self.dbPath) #creates database file
+        with open(schema_path, "r") as f: #reads schema.sql
+            contents = f.read()
+        cursor = conn.cursor()
+        cursor.executescript(contents) #executes contents of script
+        conn.close()
 
     def saveResult(self, server, availability, rtt, ssl) -> int:
         """
@@ -34,12 +36,23 @@ class DatabaseHandle:
 
         Returns the run_id of the newly inserted monitored_runs row.
 
-        # TODO: INSERT INTO monitored_runs with all fields from availability/rtt/ssl
+        # TODO:  INSERT INTO monitored_runs with all fields from availability/rtt/ssl
         #        get lastrowid as runId
         #        if rtt is not None: INSERT each measurement into rtt_samples
         #        commit and return runId
         """
-        pass
+        with sqlite3.connect(self.dbPath) as conn:
+            cursor = conn.cursor() #connect to sqlite
+            cursor.execute(""" INSERT INTO monitored_runs (target_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt) #inserts into these columns
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) """, (server, availability.timestamp, availability.reachable, availability.http_status, availability.error_code, ssl, statistics.mean(rtt), statistics.median(rtt))) #values inserted
+            run_id = cursor.lastrowid #use last rowid as current 
+            if rtt is not None:
+                samples = [(run_id, value) for value in rtt] #attaches run id for each rtt value
+                cursor.executemany("""INSERT INTO monitored_runs (rtt)
+                                    VALUES rtt  """)
+            conn.commit() #commit
+            return run_id 
+        
 
     def getRecent(self, number: int, server) -> list:
         """
