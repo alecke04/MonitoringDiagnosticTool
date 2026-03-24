@@ -14,10 +14,14 @@ class AvailResult:
 
     def __init__(self, isUp: bool, httpCode: int, httpDescript: str):
         # TODO: assign each parameter to self
+        self.isUp = isUp
+        self.httpCode = httpCode
+        self.httpDescript = httpDescript
         pass
 
     def __repr__(self):
         # TODO: return readable string like <AvailResult isUp=True code=200>
+        return f"<AvailResult isUp={self.isUp} code={self.httpCode}>"
         pass
 
 
@@ -43,6 +47,11 @@ class RTTResult:
     ):
         # TODO: assign each parameter to self
         # confidence90Interval can be None initially; calculated separately
+        self.count = count
+        self.measurements = measurements
+        self.average = average
+        self.median = median
+        self.confidence90Interval = (None, None)
         pass
 
     def calculateConfidenceInterval(self) -> None:
@@ -51,10 +60,20 @@ class RTTResult:
         and stores it in self.confidence90Interval.
         # TODO: implement using mean, std deviation, and t-distribution or z-score
         """
+        confidenceLevel = 0.90
+        n = self.count
+        mean = self.average
+        stddev = (sum((x - mean) ** 2 for x in self.measurements) / (n - 1)) ** 0.5  # sample standard deviation
+        zScore = 1.645  # z-score for 90% confidence
+        marginOfError = zScore * (stddev / (n ** 0.5))
+        lower = mean - marginOfError
+        upper = mean + marginOfError
+        self.confidence90Interval = (lower, upper)
         pass
 
     def __repr__(self):
         # TODO: return readable string like <RTTResult count=100 avg=42.3ms>
+        return f"<RTTResult count={self.count} avg={self.average:.2f}ms>"
         pass
 
 
@@ -69,8 +88,11 @@ class SSLResult:
 
     def __init__(self, isValid: bool, expirationDate: str):
         # TODO: assign each parameter to self
+        self.isValid = isValid
+        self.expirationDate = expirationDate
         pass
 
     def __repr__(self):
         # TODO: return readable string like <SSLResult valid=True expires=2027-01-01>
+        return f"<SSLResult valid={self.isValid} expires={self.expirationDate}>"
         pass

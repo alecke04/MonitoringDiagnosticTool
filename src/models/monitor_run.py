@@ -33,8 +33,19 @@ class MonitorRun:
         confidence90Interval: tuple,
     ):
         # TODO: assign each parameter to self
+        self.runId = runId
+        self.timestamp = timestamp
+        self.reachable = reachable
+        self.httpStatus = httpStatus
+        self.errorDescription = errorDescription
+        self.sslValid = sslValid
+        self.sslExpirationDate = sslExpirationDate
+        self.avgRTTms = avgRTTms
+        self.medianRTTms = medianRTTms
+        self.confidence90Interval = confidence90Interval
         pass
 
     def __repr__(self):
         # TODO: return a readable string like <MonitorRun id=1 reachable=True>
+        return f"<MonitorRun id={self.runId} reachable={self.reachable}>"
         pass

@@ -24,4 +24,19 @@ def load_config() -> dict:
     #        use os.getenv() for each key with sensible defaults
     #        return the config dict
     """
+    # Load environment variables from .env file
+    from dotenv import load_dotenv
+    import os
+
+    load_dotenv()
+    config = {
+        "SMTP_EMAIL": os.getenv("SMTP_EMAIL"),
+        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD"),
+        "REPORT_PASSWORD": os.getenv("REPORT_PASSWORD"),
+        "DB_PATH": os.getenv("DB_PATH", "data/monitor.db"),
+        "TIMEOUT": int(os.getenv("TIMEOUT", 10)),
+        "RETRY_DELAY": int(os.getenv("RETRY_DELAY", 5)),
+        "MAX_RETRIES": int(os.getenv("MAX_RETRIES", 3)),
+    }
+    return config
     pass
