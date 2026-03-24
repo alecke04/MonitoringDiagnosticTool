@@ -15,8 +15,12 @@ class WebServer:
 
     def __init__(self, id: int, url: str, email: str, sample: str):
         # TODO: assign each parameter to self
+        self.id = id
+        self.url = url
+        self.email = email
+        self.sample = sample
         pass
 
     def __repr__(self):
         # TODO: return a readable string like <WebServer id=1 url=...>
-        pass
+        return f"<WebServer id={self.id} url={self.url}>"
