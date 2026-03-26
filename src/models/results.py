@@ -60,7 +60,6 @@ class RTTResult:
         and stores it in self.confidence90Interval.
         # TODO: implement using mean, std deviation, and t-distribution or z-score
         """
-        confidenceLevel = 0.90
         n = self.count
         mean = self.average
         stddev = (sum((x - mean) ** 2 for x in self.measurements) / (n - 1)) ** 0.5  # sample standard deviation
