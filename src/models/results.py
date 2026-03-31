@@ -43,7 +43,6 @@ class RTTResult:
         measurements: list,
         average: float,
         median: float,
-        confidence90Interval: tuple = None,
     ):
         # TODO: assign each parameter to self
         # confidence90Interval can be None initially; calculated separately
@@ -60,7 +59,6 @@ class RTTResult:
         and stores it in self.confidence90Interval.
         # TODO: implement using mean, std deviation, and t-distribution or z-score
         """
-        confidenceLevel = 0.90
         n = self.count
         mean = self.average
         stddev = (sum((x - mean) ** 2 for x in self.measurements) / (n - 1)) ** 0.5  # sample standard deviation
