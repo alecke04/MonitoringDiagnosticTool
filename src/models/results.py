@@ -43,7 +43,6 @@ class RTTResult:
         measurements: list,
         average: float,
         median: float,
-        confidence90Interval: tuple = None,
     ):
         # TODO: assign each parameter to self
         # confidence90Interval can be None initially; calculated separately

@@ -42,28 +42,33 @@ class DatabaseHandle:
         #        commit and return runId
         """
         monitored_runs_query = """
-        INSERT INTO monitored_runs (target_id, timestamp, availability.isUp, availability.httpCode, 
-        rtt_average, rtt_median, ssl_valid) VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)
+        INSERT INTO monitored_runs (target_id, timestamp, reachable, http_status, error_code, 
+        ssl_expiration, avg_rtt, median_rtt) VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?)
         """
         
         rtt_samples_query = """
-        INSERT INTO rtt_samples (run_id, sample_value) VALUES (?, ?)
+        INSERT INTO rtt_samples (run_id, rtt_value) VALUES (?, ?)
         """
-        conn = sqlite3.connect(self.dbPath)
-        cursor = conn.cursor()
-        rtt_average = rtt['average'] if rtt else None
-        rtt_median = rtt['median'] if rtt else None
-        ssl_valid = ssl['valid'] if ssl else None
-        cursor.execute(monitored_runs_query, (server.id, availability.isUp, availability.httpCode, 
-                                              rtt_average, rtt_median, ssl_valid))
-        run_id = cursor.lastrowid
-        if rtt:
-            for sample in rtt['samples']:
-                cursor.execute(rtt_samples_query, (run_id, sample))
-        conn.commit()
-        conn.close()
-        return run_id
-        pass
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                rtt_average = rtt['average'] if rtt else None
+                rtt_median = rtt['median'] if rtt else None
+                ssl_expiration = ssl['expirationDate'] if ssl else None
+                error_code = None if availability.isUp else availability.httpDescript
+                
+                cursor.execute(monitored_runs_query, (server.id, int(availability.isUp), availability.httpCode, 
+                                                      error_code, ssl_expiration, rtt_average, rtt_median))
+                run_id = cursor.lastrowid
+                
+                if rtt and 'measurements' in rtt:
+                    for sample in rtt['measurements']:
+                        cursor.execute(rtt_samples_query, (run_id, sample))
+                
+                conn.commit()
+                return run_id
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in saveResult: {e}")
 
     def getRecent(self, number: int, server) -> list:
         """
@@ -76,24 +81,28 @@ class DatabaseHandle:
         #        map rows to MonitorRun objects and return
         """
         query = """
-        SELECT run_id, target_id, timestamp, availability.isUp, availability.httpCode, rtt_average, rtt_median, ssl_valid
+        SELECT run_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt
         FROM monitored_runs
         WHERE target_id = ?
         ORDER BY timestamp DESC
         LIMIT ?
         """
-        conn = sqlite3.connect(self.dbPath)
-        cursor = conn.cursor()
-        cursor.execute(query, (server.id, number))
-        rows = cursor.fetchall()
-        conn.close()
-        monitor_runs = []
-        for row in rows:
-            run_id, target_id, timestamp, isUp, httpCode, rtt_average, rtt_median, ssl_valid = row
-            monitor_run = MonitorRun(run_id, target_id, timestamp, isUp, httpCode, rtt_average, rtt_median, ssl_valid)
-            monitor_runs.append(monitor_run)
-        return monitor_runs
-        pass
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (server.id, number))
+                rows = cursor.fetchall()
+            
+            monitor_runs = []
+            for row in rows:
+                run_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt = row
+                confidence_interval = self._calculate_confidence_interval(run_id) if avg_rtt else (None, None)
+                monitor_run = MonitorRun(run_id, timestamp, bool(reachable), http_status, error_code or "", 
+                                        ssl_expiration is not None, ssl_expiration or "", avg_rtt, median_rtt, confidence_interval)
+                monitor_runs.append(monitor_run)
+            return monitor_runs
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in getRecent: {e}")
 
     def getRunsInTimeframe(self, server, start: str, end: str) -> list:
         """
@@ -104,62 +113,69 @@ class DatabaseHandle:
         #        AND timestamp BETWEEN start AND end
         """
         query = """
-        SELECT run_id, target_id, timestamp, availability.isUp, availability.httpCode, rtt_average, rtt_median, ssl_valid
+        SELECT run_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt
         FROM monitored_runs
         WHERE target_id = ?
         AND timestamp BETWEEN ? AND ?
         ORDER BY timestamp DESC
         """
-        conn = sqlite3.connect(self.dbPath)
-        cursor = conn.cursor()
-        cursor.execute(query, (server.id, start, end))
-        rows = cursor.fetchall()
-        conn.close()
-        monitor_runs = []
-        for row in rows:
-            run_id, target_id, timestamp, isUp, httpCode, rtt_average, rtt_median, ssl_valid = row
-            monitor_run = MonitorRun(run_id, target_id, timestamp, isUp, httpCode, rtt_average, rtt_median, ssl_valid)
-            monitor_runs.append(monitor_run)
-        return monitor_runs
-        pass
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (server.id, start, end))
+                rows = cursor.fetchall()
+            
+            monitor_runs = []
+            for row in rows:
+                run_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt = row
+                confidence_interval = self._calculate_confidence_interval(run_id) if avg_rtt else (None, None)
+                monitor_run = MonitorRun(run_id, timestamp, bool(reachable), http_status, error_code or "", 
+                                        ssl_expiration is not None, ssl_expiration or "", avg_rtt, median_rtt, confidence_interval)
+                monitor_runs.append(monitor_run)
+            return monitor_runs
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in getRunsInTimeframe: {e}")
 
     def updateNotificationStatus(self, runId: int, status: str) -> None:
         """
         Updates the sent_status field in the notifications table for a given run.
         Status must be one of: 'PENDING', 'SENT', 'FAILED'
-
-        # TODO: UPDATE notifications SET sent_status = status WHERE run_id = runId
-        #        commit the change
         """
+        if status not in ('PENDING', 'SENT', 'FAILED'):
+            raise ValueError(f"Invalid status: {status}. Must be one of: PENDING, SENT, FAILED")
+        
         query = """
         UPDATE notifications
         SET sent_status = ?
         WHERE run_id = ?
         """
-        conn = sqlite3.connect(self.dbPath)
-        cursor = conn.cursor()
-        cursor.execute(query, (status, runId))
-        conn.commit()
-        conn.close()
-        pass
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (status, runId))
+                conn.commit()
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in updateNotificationStatus: {e}")
 
-    def addTarget(self, server) -> int:
+    def addTarget(self, server, email_recipient: str, interval: int = 300, 
+                   timeout: int = 10, retry_count: int = 3) -> int:
         """
         Inserts a new server into monitored_targets.
         Returns the new target_id.
-        # TODO: INSERT INTO monitored_targets and return lastrowid
         """
         query = """
-        INSERT INTO monitored_targets (url, sample_path, check_ssl) VALUES (?, ?, ?)
+        INSERT INTO monitored_targets (url, sample_path, email_recipient, interval, timeout, retry_count) 
+        VALUES (?, ?, ?, ?, ?, ?)
         """
-        conn = sqlite3.connect(self.dbPath)
-        cursor = conn.cursor()
-        cursor.execute(query, (server.url, server.sample_path, server.check_ssl))
-        target_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        return target_id
-        pass
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (server.url, server.sample, email_recipient, interval, timeout, retry_count))
+                target_id = cursor.lastrowid
+                conn.commit()
+                return target_id
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in addTarget: {e}")
 
     def removeTarget(self, targetId: int) -> None:
         """
@@ -170,31 +186,57 @@ class DatabaseHandle:
         DELETE FROM monitored_targets
         WHERE target_id = ?
         """
-        conn = sqlite3.connect(self.dbPath)
-        cursor = conn.cursor()
-        cursor.execute(query, (targetId,))
-        conn.commit()
-        conn.close()
-        pass
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (targetId,))
+                conn.commit()
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in removeTarget: {e}")
 
     def getAllTargets(self) -> list:
         """
         Returns all rows from monitored_targets as a list of WebServer objects.
-        # TODO: SELECT * FROM monitored_targets and map to WebServer objects
         """
         query = """
-        SELECT target_id, url, sample_path, check_ssl
+        SELECT target_id, url, email_recipient, sample_path
         FROM monitored_targets
         """
-        conn = sqlite3.connect(self.dbPath)
-        cursor = conn.cursor()
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        conn.close()
-        servers = []
-        for row in rows:
-            target_id, url, sample_path, check_ssl = row
-            server = WebServer(target_id, url, sample_path, check_ssl)
-            servers.append(server)
-        return servers
-        pass
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query)
+                rows = cursor.fetchall()
+            
+            servers = []
+            for row in rows:
+                target_id, url, email_recipient, sample_path = row
+                server = WebServer(target_id, url, email_recipient, sample_path)
+                servers.append(server)
+            return servers
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in getAllTargets: {e}")
+    
+    def _calculate_confidence_interval(self, run_id: int) -> tuple:
+        """
+        Helper method: calculates 90% confidence interval from RTT samples for a run.
+        Returns (lower, upper) tuple or (None, None) if no samples.
+        """
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT rtt_value FROM rtt_samples WHERE run_id = ?", (run_id,))
+                rows = cursor.fetchall()
+            
+            if not rows:
+                return (None, None)
+            
+            samples = [row[0] for row in rows]
+            mean = sum(samples) / len(samples)
+            stddev = (sum((x - mean) ** 2 for x in samples) / max(1, len(samples) - 1)) ** 0.5
+            z_score = 1.645  # 90% confidence
+            margin_of_error = z_score * (stddev / (len(samples) ** 0.5))
+            
+            return (mean - margin_of_error, mean + margin_of_error)
+        except sqlite3.Error:
+            return (None, None)
