@@ -5,8 +5,6 @@
 from time import time
 
 import requests
-
-import WebServer, DatabaseHandle, NotificationService
 from src.models.results import AvailResult, RTTResult, SSLResult, SSLResult
 from src.models import WebServer
 from src.database.db_handle import DatabaseHandle
