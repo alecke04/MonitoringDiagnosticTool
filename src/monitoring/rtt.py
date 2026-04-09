@@ -3,7 +3,10 @@
 # The actual orchestration lives in MonitoringSystem.measureRTT()
 # This module can be used for unit testing RTT logic in isolation
 
-# TODO: import requests, time, statistics (or math)
+import requests, time, statistics
+
+from src.models.results import RTTResult
+
 
 
 def measure(url: str, sample_path: str, samples: int = 100) -> "RTTResult":
@@ -26,4 +29,24 @@ def measure(url: str, sample_path: str, samples: int = 100) -> "RTTResult":
     #        compute average, median
     #        build and return RTTResult
     """
+    measurements = []
+    for _ in range(samples):
+        time_before = time.time()
+        try:
+            requests.get(url + sample_path)
+            time_after = time.time()
+            rtt = (time_after - time_before) * 1000  # convert to ms
+            measurements.append(rtt)
+        except requests.exceptions.RequestException:
+            measurements.append(float('inf'))  # Use infinity to indicate a failed request
+
+    average = statistics.mean(measurements)
+    median = statistics.median(measurements)
+
+    return RTTResult(
+        count=samples,
+        measurements=measurements,
+        average=average,
+        median=median
+    )
     pass

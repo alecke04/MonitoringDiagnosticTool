@@ -3,7 +3,9 @@
 # The actual orchestration lives in MonitoringSystem.checkSSL()
 # This module can be used for unit testing SSL logic in isolation
 
-# TODO: import ssl, socket, datetime
+import ssl, socket, datetime
+
+from src.models.results import SSLResult
 
 
 def check(url: str) -> "SSLResult":
@@ -20,4 +22,20 @@ def check(url: str) -> "SSLResult":
     #        parse cert["notAfter"] and compare to datetime.date.today()
     #        catch ssl.SSLError and return SSLResult(isValid=False, "Unknown")
     """
+    url = url.replace("https://", "").split("/")[0]  # Extract hostname
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((url, 443), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=url) as ssock:
+                cert = ssock.getpeercert()
+                expiry_str = cert.get("notAfter", "Unknown")
+                if expiry_str == "Unknown":
+                    return SSLResult(isValid=False, expirationDate="Unknown")
+                expiry_date = datetime.datetime.strptime(expiry_str, "%b %d %H:%M:%S %Y %Z").date()
+                is_valid = expiry_date > datetime.date.today()
+                return SSLResult(isValid=is_valid, expirationDate=expiry_str)
+
+    except ssl.SSLError:
+        return SSLResult(isValid=False, expirationDate="Unknown")
+
     pass
