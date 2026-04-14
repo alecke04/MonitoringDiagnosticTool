@@ -31,7 +31,9 @@ def check(url: str) -> "SSLResult":
                 expiry_str = cert.get("notAfter", "Unknown")
                 if expiry_str == "Unknown":
                     return SSLResult(isValid=False, expirationDate="Unknown")
-                expiry_date = datetime.datetime.strptime(expiry_str, "%b %d %H:%M:%S %Y %Z").date()
+                # Remove GMT suffix before parsing to avoid timezone parsing issues
+                expiry_clean = expiry_str.replace(" GMT", "")
+                expiry_date = datetime.datetime.strptime(expiry_clean, "%b %d %H:%M:%S %Y").date()
                 is_valid = expiry_date > datetime.date.today()
                 return SSLResult(isValid=is_valid, expirationDate=expiry_str)
 

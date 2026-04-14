@@ -3,9 +3,11 @@
 # retry logic, and report generation for all monitored servers
 
 from time import time
+import time as time_module
+import statistics
 
 import requests
-from src.models.results import AvailResult, RTTResult, SSLResult, SSLResult
+from src.models.results import AvailResult, RTTResult, SSLResult
 from src.models import WebServer
 from src.database.db_handle import DatabaseHandle
 from src.notifications.email_service import NotificationService
@@ -31,7 +33,7 @@ class MonitoringSystem:
         self.retryDelayMinutes = retryDelayMinutes
         self.maxRetries = maxRetries
 
-        self.db = DatabaseHandle()
+        self.db = DatabaseHandle("data/monitor.db")
         self.notificationService = NotificationService()
 
     def runCheck(self) -> None:
@@ -126,17 +128,33 @@ class MonitoringSystem:
         get_url = server.url + server.sample
         for i in range(samples):
             try:
-                start_time = time.time()
+                start_time = time_module.time()
                 response = requests.get(get_url, timeout=self.timeoutDuration)
-                end_time = time.time()
-                rtt = end_time - start_time
+                end_time = time_module.time()
+                rtt = (end_time - start_time) * 1000  # convert to milliseconds
                 measurements.append(rtt)
             except requests.exceptions.Timeout:
                 print(f"Timeout while measuring RTT for {server.url} (sample {i+1}/{samples})")
+                continue
             except requests.exceptions.ConnectionError:
                 print(f"Connection error while measuring RTT for {server.url} (sample {i+1}/{samples})")
-        return RTTResult(count=len(measurements), measurements=measurements)
-        pass
+                continue
+        
+        # Handle case where all requests failed
+        if not measurements:
+            return RTTResult(count=0, measurements=[], average=0, median=0)
+        
+        average = statistics.mean(measurements)
+        median = statistics.median(measurements)
+        
+        result = RTTResult(
+            count=len(measurements),
+            measurements=measurements,
+            average=average,
+            median=median
+        )
+        result.calculateConfidenceInterval()
+        return result
 
     def checkSSL(self, server) -> "SSLResult":
         """
@@ -149,15 +167,17 @@ class MonitoringSystem:
         try:
             import ssl
             import socket
+            import datetime
             hostname = server.url.replace("http://", "").replace("https://", "").split("/")[0]
             context = ssl.create_default_context()
-            with socket.create_connection((hostname, 443)) as sock:
+            with socket.create_connection((hostname, 443), timeout=10) as sock:
                 with context.wrap_socket(sock, server_hostname=hostname) as ssock:
                     cert = ssock.getpeercert()
                     expirationDate = cert['notAfter']
-                    from datetime import datetime
-                    exp_date = datetime.strptime(expirationDate, "%b %d %H:%M:%S %Y %Z")
-                    isValid = exp_date > datetime.now()
+                    # Remove GMT suffix before parsing to avoid timezone parsing issues
+                    expiry_clean = expirationDate.replace(" GMT", "")
+                    exp_date = datetime.datetime.strptime(expiry_clean, "%b %d %H:%M:%S %Y")
+                    isValid = exp_date > datetime.datetime.now()
                     return SSLResult(isValid=isValid, expirationDate=expirationDate)
         except Exception as e:
             print(f"Error while checking SSL for {server.url}: {e}")
@@ -175,8 +195,17 @@ class MonitoringSystem:
         with httpCode=404 after all retries are exhausted.
         # TODO: loop 1..maxRetries, WAIT decreasing seconds, call checkAvailability
         """
-        
-        pass
+        checkResult = None
+        for attempt in range(1, self.maxRetries + 1):
+            wait_time = (self.retryDelayMinutes * 60) / attempt
+            print(f"Waiting {wait_time:.2f} seconds before retrying availability check for {server.url} (attempt {attempt}/{self.maxRetries})")
+            time_module.sleep(wait_time)
+            checkResult = self.checkAvailability(server)
+            if checkResult.isUp:
+                print(f"{server.url} is back up on attempt {attempt}.")
+                return checkResult
+        print(f"{server.url} is still down after all retries.")
+        return checkResult if checkResult else AvailResult(isUp=False, httpCode=404)
 
     def generateSendReport(self, server, failure) -> None:
         """
@@ -186,4 +215,6 @@ class MonitoringSystem:
         # TODO: call db.getRecent(number=50, server=server)
         #        call notificationService.notifyFailure(server, history, failure)
         """
+        recent_history = self.db.getRecent(number=50, server=server)
+        self.notificationService.notifyFailure(server, recent_history, failure)
         pass

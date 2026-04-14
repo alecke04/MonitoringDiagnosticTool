@@ -38,15 +38,25 @@ def measure(url: str, sample_path: str, samples: int = 100) -> "RTTResult":
             rtt = (time_after - time_before) * 1000  # convert to ms
             measurements.append(rtt)
         except requests.exceptions.RequestException:
-            measurements.append(float('inf'))  # Use infinity to indicate a failed request
+            continue  # Skip failed samples to avoid corrupting statistics
+
+    # Handle case where all requests failed
+    if not measurements:
+        return RTTResult(
+            count=0,
+            measurements=[],
+            average=0,
+            median=0
+        )
 
     average = statistics.mean(measurements)
     median = statistics.median(measurements)
 
-    return RTTResult(
-        count=samples,
+    result = RTTResult(
+        count=len(measurements),
         measurements=measurements,
         average=average,
         median=median
     )
-    pass
+    result.calculateConfidenceInterval()
+    return result
