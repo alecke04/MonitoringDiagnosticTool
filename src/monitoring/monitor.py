@@ -5,12 +5,14 @@
 from time import time
 import time as time_module
 import statistics
+from datetime import datetime
 
 import requests
 from src.models.results import AvailResult, RTTResult, SSLResult
 from src.models import WebServer
 from src.database.db_handle import DatabaseHandle
 from src.notifications.email_service import NotificationService
+from src.utils.config import load_config
 
 
 class MonitoringSystem:
@@ -33,8 +35,16 @@ class MonitoringSystem:
         self.retryDelayMinutes = retryDelayMinutes
         self.maxRetries = maxRetries
 
-        self.db = DatabaseHandle("data/monitor.db")
-        self.notificationService = NotificationService()
+        config = load_config()
+        db_path = config.get("DB_PATH", "data/monitor.db")
+        self.db = DatabaseHandle(db_path)
+        
+        self.notificationService = NotificationService(
+            reportPassword=config.get("REPORT_PASSWORD"),
+            senderEmail=config.get("SMTP_EMAIL"),
+            senderPassword=config.get("SMTP_PASSWORD"),
+            db=self.db
+        )
 
     def runCheck(self) -> None:
         """
@@ -70,11 +80,11 @@ class MonitoringSystem:
                 if availResult.isUp:
                     rttResult = self.measureRTT(server)
                     sslResult = self.checkSSL(server)
-                    self.db.saveResult(server, availResult, rttResult, sslResult)
+                    run_id = self.db.saveResult(server, availResult, rttResult, sslResult)
     
                     if not sslResult.isValid:
                         print(f"SSL certificate for {server.url} is invalid. Generating report.")
-                        self.generateSendReport(server, "SSL certificate invalid")
+                        self.generateSendReport(server, run_id)
                 else:
                     print(f"{server.url} is down. Retrying with increasing frequency.")
                     retryResult = self.waitRetryAvailability(server)
@@ -83,8 +93,8 @@ class MonitoringSystem:
                         self.db.saveResult(server, retryResult, None, None)
                     else:
                         print(f"{server.url} is still down after retries. Generating report.")
-                        self.db.saveResult(server, retryResult, None, None)
-                        self.generateSendReport(server, "Server down after retries")
+                        run_id = self.db.saveResult(server, retryResult, None, None)
+                        self.generateSendReport(server, run_id)
         pass
 
     def checkAvailability(self, server) -> "AvailResult":
@@ -207,14 +217,17 @@ class MonitoringSystem:
         print(f"{server.url} is still down after all retries.")
         return checkResult if checkResult else AvailResult(isUp=False, httpCode=404)
 
-    def generateSendReport(self, server, failure) -> None:
+    def generateSendReport(self, server, run_id: int) -> None:
         """
         Fetches the 50 most recent runs for this server from the DB,
         then hands off to notificationService.notifyFailure to build
         and send the encrypted diagnostic email.
         # TODO: call db.getRecent(number=50, server=server)
-        #        call notificationService.notifyFailure(server, history, failure)
+        #        call notificationService.notifyFailure(server, history, run_id)
         """
-        recent_history = self.db.getRecent(number=50, server=server)
-        self.notificationService.notifyFailure(server, recent_history, failure)
-        pass
+        try:
+            recent_history = self.db.getRecent(number=50, server=server)
+            self.notificationService.notifyFailure(server, recent_history, run_id)
+            print(f"Report generated and sent for {server.url}")
+        except Exception as e:
+            print(f"Failed to generate and send report for {server.url}: {e}")
