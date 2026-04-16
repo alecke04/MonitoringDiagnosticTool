@@ -2,10 +2,17 @@
 # Coordinates availability checks, RTT measurement, SSL validation,
 # retry logic, and report generation for all monitored servers
 
-# TODO: import WebServer, DatabaseHandle, NotificationService when implemented
-# from src.models import WebServer
-# from src.database.db_handle import DatabaseHandle
-# from src.notifications.email_service import NotificationService
+from time import time
+import time as time_module
+import statistics
+from datetime import datetime
+
+import requests
+from src.models.results import AvailResult, RTTResult, SSLResult
+from src.models import WebServer
+from src.database.db_handle import DatabaseHandle
+from src.notifications.email_service import NotificationService
+from src.utils.config import load_config
 
 
 class MonitoringSystem:
@@ -24,7 +31,20 @@ class MonitoringSystem:
         # TODO: assign parameters to self
         # TODO: instantiate self.db = DatabaseHandle(...)
         # TODO: instantiate self.notificationService = NotificationService(...)
-        pass
+        self.timeoutDuration = timeoutDuration
+        self.retryDelayMinutes = retryDelayMinutes
+        self.maxRetries = maxRetries
+
+        config = load_config()
+        db_path = config.get("DB_PATH", "data/monitor.db")
+        self.db = DatabaseHandle(db_path)
+        
+        self.notificationService = NotificationService(
+            reportPassword=config.get("REPORT_PASSWORD"),
+            senderEmail=config.get("SMTP_EMAIL"),
+            senderPassword=config.get("SMTP_PASSWORD"),
+            db=self.db
+        )
 
     def runCheck(self) -> None:
         """
@@ -40,6 +60,41 @@ class MonitoringSystem:
         # TODO: implement loop using checkAvailability, measureRTT, checkSSL,
         #        waitRetryAvailability, generateSendReport, db.saveResult
         """
+        if not self.db:
+            print("Database connection not established.")
+            return
+        else:
+            print("Database connection established.")
+
+        #check if there are any servers to monitor
+        servers = self.db.getMonitoredServers()
+        if not servers:
+            print("No servers to monitor.")
+            return
+        else:
+            print(f"Monitoring {len(servers)} servers.")
+        
+        # if up: measure RTT + validate SSL, save to DB
+        for server in servers:
+                availResult = self.checkAvailability(server)
+                if availResult.isUp:
+                    rttResult = self.measureRTT(server)
+                    sslResult = self.checkSSL(server)
+                    run_id = self.db.saveResult(server, availResult, rttResult, sslResult)
+    
+                    if not sslResult.isValid:
+                        print(f"SSL certificate for {server.url} is invalid. Generating report.")
+                        self.generateSendReport(server, run_id)
+                else:
+                    print(f"{server.url} is down. Retrying with increasing frequency.")
+                    retryResult = self.waitRetryAvailability(server)
+                    if retryResult.isUp:
+                        print(f"{server.url} is back up after retry. Saving result to DB.")
+                        self.db.saveResult(server, retryResult, None, None)
+                    else:
+                        print(f"{server.url} is still down after retries. Generating report.")
+                        run_id = self.db.saveResult(server, retryResult, None, None)
+                        self.generateSendReport(server, run_id)
         pass
 
     def checkAvailability(self, server) -> "AvailResult":
@@ -52,7 +107,21 @@ class MonitoringSystem:
         # TODO: use requests.get with timeout=self.timeoutDuration
         #        catch requests.exceptions.Timeout and ConnectionError
         """
-        pass
+        httpCode = 0
+        isUp = False
+
+        if not server.url.startswith("http"):
+            print(f"Invalid URL for server {server.id}: {server.url}")
+            return AvailResult(isUp=False, httpCode=httpCode)
+        try:
+            response = requests.get(server.url, timeout=self.timeoutDuration)
+            httpCode = response.status_code
+            isUp = httpCode < 400
+        except requests.exceptions.Timeout:
+            print(f"Timeout while checking availability of {server.url}")
+        except requests.exceptions.ConnectionError:
+            print(f"Connection error while checking availability of {server.url}")
+        return AvailResult(isUp=isUp, httpCode=httpCode)
 
     def measureRTT(self, server, samples: int = 100) -> "RTTResult":
         """
@@ -64,7 +133,38 @@ class MonitoringSystem:
         # TODO: loop samples times, record time before/after each GET
         #        compute average, median, call calculateConfidenceInterval()
         """
-        pass
+        samples = 100
+        measurements = []
+        get_url = server.url + server.sample
+        for i in range(samples):
+            try:
+                start_time = time_module.time()
+                response = requests.get(get_url, timeout=self.timeoutDuration)
+                end_time = time_module.time()
+                rtt = (end_time - start_time) * 1000  # convert to milliseconds
+                measurements.append(rtt)
+            except requests.exceptions.Timeout:
+                print(f"Timeout while measuring RTT for {server.url} (sample {i+1}/{samples})")
+                continue
+            except requests.exceptions.ConnectionError:
+                print(f"Connection error while measuring RTT for {server.url} (sample {i+1}/{samples})")
+                continue
+        
+        # Handle case where all requests failed
+        if not measurements:
+            return RTTResult(count=0, measurements=[], average=0, median=0)
+        
+        average = statistics.mean(measurements)
+        median = statistics.median(measurements)
+        
+        result = RTTResult(
+            count=len(measurements),
+            measurements=measurements,
+            average=average,
+            median=median
+        )
+        result.calculateConfidenceInterval()
+        return result
 
     def checkSSL(self, server) -> "SSLResult":
         """
@@ -74,6 +174,24 @@ class MonitoringSystem:
         # TODO: use ssl and socket stdlib to fetch the cert
         #        compare cert expiry date to today's date
         """
+        try:
+            import ssl
+            import socket
+            import datetime
+            hostname = server.url.replace("http://", "").replace("https://", "").split("/")[0]
+            context = ssl.create_default_context()
+            with socket.create_connection((hostname, 443), timeout=10) as sock:
+                with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                    cert = ssock.getpeercert()
+                    expirationDate = cert['notAfter']
+                    # Remove GMT suffix before parsing to avoid timezone parsing issues
+                    expiry_clean = expirationDate.replace(" GMT", "")
+                    exp_date = datetime.datetime.strptime(expiry_clean, "%b %d %H:%M:%S %Y")
+                    isValid = exp_date > datetime.datetime.now()
+                    return SSLResult(isValid=isValid, expirationDate=expirationDate)
+        except Exception as e:
+            print(f"Error while checking SSL for {server.url}: {e}")
+            return SSLResult(isValid=False, expirationDate=None)
         pass
 
     def waitRetryAvailability(self, server) -> "AvailResult":
@@ -87,14 +205,29 @@ class MonitoringSystem:
         with httpCode=404 after all retries are exhausted.
         # TODO: loop 1..maxRetries, WAIT decreasing seconds, call checkAvailability
         """
-        pass
+        checkResult = None
+        for attempt in range(1, self.maxRetries + 1):
+            wait_time = (self.retryDelayMinutes * 60) / attempt
+            print(f"Waiting {wait_time:.2f} seconds before retrying availability check for {server.url} (attempt {attempt}/{self.maxRetries})")
+            time_module.sleep(wait_time)
+            checkResult = self.checkAvailability(server)
+            if checkResult.isUp:
+                print(f"{server.url} is back up on attempt {attempt}.")
+                return checkResult
+        print(f"{server.url} is still down after all retries.")
+        return checkResult if checkResult else AvailResult(isUp=False, httpCode=404)
 
-    def generateSendReport(self, server, failure) -> None:
+    def generateSendReport(self, server, run_id: int) -> None:
         """
         Fetches the 50 most recent runs for this server from the DB,
         then hands off to notificationService.notifyFailure to build
         and send the encrypted diagnostic email.
         # TODO: call db.getRecent(number=50, server=server)
-        #        call notificationService.notifyFailure(server, history, failure)
+        #        call notificationService.notifyFailure(server, history, run_id)
         """
-        pass
+        try:
+            recent_history = self.db.getRecent(number=50, server=server)
+            self.notificationService.notifyFailure(server, recent_history, run_id)
+            print(f"Report generated and sent for {server.url}")
+        except Exception as e:
+            print(f"Failed to generate and send report for {server.url}: {e}")

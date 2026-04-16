@@ -104,6 +104,33 @@ class DatabaseHandle:
         except sqlite3.Error as e:
             raise Exception(f"Database error in getRecent: {e}")
 
+    def getRunById(self, run_id: int):
+        """
+        Retrieves a single monitoring run by its run_id.
+        Returns a MonitorRun object or None if not found.
+        """
+        query = """
+        SELECT run_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt
+        FROM monitored_runs
+        WHERE run_id = ?
+        """
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (run_id,))
+                row = cursor.fetchone()
+            
+            if not row:
+                return None
+            
+            run_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt = row
+            confidence_interval = self._calculate_confidence_interval(run_id) if avg_rtt else (None, None)
+            monitor_run = MonitorRun(run_id, timestamp, bool(reachable), http_status, error_code or "", 
+                                    ssl_expiration is not None, ssl_expiration or "", avg_rtt, median_rtt, confidence_interval)
+            return monitor_run
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in getRunById: {e}")
+
     def getRunsInTimeframe(self, server, start: str, end: str) -> list:
         """
         Retrieves all runs for a server between `start` and `end` timestamps.
@@ -156,6 +183,54 @@ class DatabaseHandle:
                 conn.commit()
         except sqlite3.Error as e:
             raise Exception(f"Database error in updateNotificationStatus: {e}")
+
+    def hasRecentNotification(self, server_id: int, minutes_threshold: int = 15) -> bool:
+        """
+        Checks if a notification was recently sent for this server.
+        Returns True if a SENT notification exists within the last N minutes.
+        
+        Used to prevent duplicate alert emails for transient failures.
+        """
+        query = """
+        SELECT COUNT(*)
+        FROM notifications n
+        JOIN monitored_runs mr ON n.run_id = mr.run_id
+        WHERE mr.target_id = ?
+        AND n.sent_status = 'SENT'
+        AND datetime(n.time_sent) > datetime('now', '-' || ? || ' minutes')
+        """
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (server_id, minutes_threshold))
+                count = cursor.fetchone()[0]
+            return count > 0
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in hasRecentNotification: {e}")
+
+    def recordNotification(self, run_id: int, filename: str = None, status: str = 'SENT') -> int:
+        """
+        Records that a notification was sent for a specific monitoring run.
+        Returns the notification_id.
+        
+        Args:
+            run_id: The monitored_runs row this notification is for
+            filename: Name of the encrypted report ZIP file (optional)
+            status: 'PENDING', 'SENT', or 'FAILED'
+        """
+        query = """
+        INSERT INTO notifications (run_id, sent_status, filename, time_sent)
+        VALUES (?, ?, ?, datetime('now'))
+        """
+        try:
+            with sqlite3.connect(self.dbPath) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (run_id, status, filename))
+                conn.commit()
+                notification_id = cursor.lastrowid
+            return notification_id
+        except sqlite3.Error as e:
+            raise Exception(f"Database error in recordNotification: {e}")
 
     def addTarget(self, server, email_recipient: str, interval: int = 300, 
                    timeout: int = 10, retry_count: int = 3) -> int:

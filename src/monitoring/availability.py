@@ -24,7 +24,7 @@ def check(url: str, timeout: int) -> "AvailResult":
         is_up = response.status_code == 200
         return AvailResult(isUp=is_up, httpCode=response.status_code, httpDescript=response.reason)
     except requests.exceptions.Timeout:
-        return AvailResult(isUp=False, httpCode=None, httpDescript="Timeout")
+        return AvailResult(isUp=False, httpCode=0, httpDescript="Timeout")
     except requests.exceptions.ConnectionError:
-        return AvailResult(isUp=False, httpCode=None, httpDescript="Connection Error")
+        return AvailResult(isUp=False, httpCode=0, httpDescript="Connection Error")
     pass
