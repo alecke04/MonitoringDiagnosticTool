@@ -1,67 +1,15 @@
 # main.py — application entry point
 # Parses CLI arguments and dispatches to the appropriate commands
 # Run with: python src/main.py <command> [args]
+import argparse
 
-# TODO: import argparse
-# TODO: from src.database.db_handle import DatabaseHandle
-# TODO: from src.monitoring.monitor import MonitoringSystem
-# TODO: from src.utils.config import load_config
-# TODO: import schedule, time  (for the monitoring loop)
+from database import DatabaseHandle
 
-
-def cmd_add(args) -> None:
-    """
-    Adds a new web server to the monitoring list.
-    Usage: python src/main.py add <url> <email>
-
-    # TODO: create WebServer object from args.url and args.email
-    #        call db.addTarget(server) to persist it
-    #        print confirmation
-    """
-    pass
+from monitoring import *
+from utils.analysis import analyse
 
 
-def cmd_remove(args) -> None:
-    """
-    Removes a server from the monitoring list by its ID.
-    Usage: python src/main.py remove <id>
-
-    # TODO: call db.removeTarget(args.id)
-    #        print confirmation
-    """
-    pass
-
-
-def cmd_list(args) -> None:
-    """
-    Displays all currently monitored servers in a formatted table.
-    Usage: python src/main.py list
-
-    # TODO: call db.getAllTargets()
-    #        print table with ID, URL, Email, latest Status
-    """
-    pass
-
-
-def cmd_status(args) -> None:
-    """
-    Shows the latest monitoring result for a specific server.
-    Usage: python src/main.py status <id>
-
-    # TODO: call db.getRecent(number=1, server) and print the result
-    """
-    pass
-
-
-def cmd_history(args) -> None:
-    """
-    Displays historical monitoring runs for a server, optionally filtered by date range.
-    Usage: python src/main.py history <id> [--from DATE] [--to DATE]
-
-    # TODO: call db.getRunsInTimeframe(server, args.from_date, args.to_date)
-    #        print each run in a readable format
-    """
-    pass
+#from SCons.Tool.ninja_tool.ninja_scons_daemon import server_thread
 
 
 def cmd_start(args) -> None:
@@ -76,37 +24,43 @@ def cmd_start(args) -> None:
     """
     pass
 
+def run_test() -> None:
+    server = "git.sidolaboratories.com"
+    monitoring_system = MonitoringSystem()
+    result = monitoring_system.run_check(server)
 
-def cmd_stop(args) -> None:
-    """
-    Stops the monitoring loop (for future implementation — may use a PID file or signal).
-    Usage: python src/main.py stop
+    if result[0]:
+        result =  True, analyse(result[1])
 
-    # TODO: implement graceful shutdown (e.g. write stop flag or send SIGTERM)
-    """
-    pass
+    print(result)
+    print("FROM DB:")
 
+    db = DatabaseHandle("./data.db")
+    db.save_result(server, result)
 
-def cmd_init_db(args) -> None:
-    """
-    Initializes the SQLite database by running schema.sql.
-    Usage: python src/main.py --init-db
-
-    # TODO: instantiate DatabaseHandle which calls _init_db() internally
-    #        print success message
-    """
-    pass
+    db.get_recent(10, server)
 
 
 def main():
     """
     Parses command-line arguments and calls the appropriate command function.
     """
-    # TODO: create argparse.ArgumentParser
-    # TODO: add subparsers for: add, remove, list, status, history, start, stop
-    # TODO: add --init-db flag
-    # TODO: parse args and call the matching cmd_* function
-    pass
+
+    parser = argparse.ArgumentParser(description="program to load and assess model")
+
+    desc_mode = "define the current mode"
+    parser.add_argument("mode", type=str, help=desc_mode)
+
+    args = parser.parse_args()
+
+    if args.mode == "help":
+        print("help page")
+    elif args.mode == "run_test":
+        run_test()
+    elif args.mode == "generate_report":
+        pass
+    else:
+        print("invalid mode")
 
 
 if __name__ == "__main__":

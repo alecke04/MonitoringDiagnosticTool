@@ -2,8 +2,9 @@
 # Single class responsible for every interaction with monitor.db
 
 import sqlite3, os, statistics
-from src.models import WebServer, MonitorHistory, MonitorRun
 
+from database.test_entry import TestEntry
+from filelock import FileLock
 
 
 class DatabaseHandle:
@@ -11,66 +12,55 @@ class DatabaseHandle:
     Wraps all SQLite database operations for the monitoring tool.
 
     Attributes:
-        dbPath (str): Absolute or relative path to the SQLite .db file
+        db_path (str): Absolute or relative path to the SQLite .db file
     """
 
-    def __init__(self, dbPath: str):
-        self.dbPath = dbPath #Calls path for database
+    def __init__(self, db_path: str):
+        self.db_path = db_path #Calls path for database
+        self.lock = FileLock("./data.lock")
         self._init_db() #calls table creation if not exists
         pass
 
     def _init_db(self) -> None:
-        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql") #Finds location of schema.sql to avoid duplication 
-        conn = sqlite3.connect(self.dbPath) #creates database file
-        with open(schema_path, "r") as f: #reads schema.sql
-            contents = f.read()
-        cursor = conn.cursor()
-        cursor.executescript(contents) #executes contents of script
-        conn.close()
+        with self.lock:
+            conn = sqlite3.connect(self.db_path) #creates database file
+            cursor = conn.cursor()
 
-    def saveResult(self, server, availability, rtt, ssl) -> int:
-        """
-        Inserts one complete monitoring cycle into the DB:
-          - One row in monitored_runs
-          - Up to 100 rows in rtt_samples (if rtt is not None)
+            create_query = TestEntry.get_table_creation_string()
+            cursor.executescript(create_query)
 
-        Returns the run_id of the newly inserted monitored_runs row.
+            conn.close()
 
-        # TODO:  INSERT INTO monitored_runs with all fields from availability/rtt/ssl
-        #        get lastrowid as runId
-        #        if rtt is not None: INSERT each measurement into rtt_samples
-        #        commit and return runId
-        """
-        monitored_runs_query = """
-        INSERT INTO monitored_runs (target_id, timestamp, reachable, http_status, error_code, 
-        ssl_expiration, avg_rtt, median_rtt) VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?)
-        """
-        
-        rtt_samples_query = """
-        INSERT INTO rtt_samples (run_id, rtt_value) VALUES (?, ?)
-        """
-        try:
-            with sqlite3.connect(self.dbPath) as conn:
-                cursor = conn.cursor()
-                rtt_average = rtt['average'] if rtt else None
-                rtt_median = rtt['median'] if rtt else None
-                ssl_expiration = ssl['expirationDate'] if ssl else None
-                error_code = None if availability.isUp else availability.httpDescript
-                
-                cursor.execute(monitored_runs_query, (server.id, int(availability.isUp), availability.httpCode, 
-                                                      error_code, ssl_expiration, rtt_average, rtt_median))
-                run_id = cursor.lastrowid
-                
-                if rtt and 'measurements' in rtt:
-                    for sample in rtt['measurements']:
-                        cursor.execute(rtt_samples_query, (run_id, sample))
-                
-                conn.commit()
-                return run_id
-        except sqlite3.Error as e:
-            raise Exception(f"Database error in saveResult: {e}")
+    def save_result(self, server:str, result:tuple[bool, Exception] | tuple[bool, list[float]]) -> bool:
+        with self.lock:
+            try:
+                conn = sqlite3.connect(self.db_path)
 
-    def getRecent(self, number: int, server) -> list:
+                test_entry = TestEntry.from_raw_data(server, result)
+                test_entry.save(conn)
+
+                conn.close()
+
+                return True
+            except Exception as e:
+                print("Encountered error during save_result in DatabaseHandle error:"+str(e))
+                return False
+
+    def get_recent(self, number: int, server: str) -> list:
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+
+            query = f"SELECT url, date FROM {TestEntry.__name__} ORDER BY date DESC LIMIT ?"
+
+            cursor = conn.cursor()
+            cursor.execute(query, (number,))
+            rows = cursor.fetchall()
+
+            for row in rows:
+                url, date = row
+                print(TestEntry.load(conn, url, date))
+
+'''
         """
         Retrieves the `number` most recent MonitorRun rows for a given server,
         ordered by timestamp descending.
@@ -87,22 +77,25 @@ class DatabaseHandle:
         ORDER BY timestamp DESC
         LIMIT ?
         """
-        try:
-            with sqlite3.connect(self.dbPath) as conn:
-                cursor = conn.cursor()
-                cursor.execute(query, (server.id, number))
-                rows = cursor.fetchall()
+        with self.lock:
+            try:
+                with sqlite3.connect(self.dbPath) as conn:
+                    query =
+
+                    cursor = conn.cursor()
+                    cursor.execute(query, (server.id, number))
+                    rows = cursor.fetchall()
             
-            monitor_runs = []
-            for row in rows:
-                run_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt = row
-                confidence_interval = self._calculate_confidence_interval(run_id) if avg_rtt else (None, None)
-                monitor_run = MonitorRun(run_id, timestamp, bool(reachable), http_status, error_code or "", 
+                monitor_runs = []
+                for row in rows:
+                    run_id, timestamp, reachable, http_status, error_code, ssl_expiration, avg_rtt, median_rtt = row
+                    confidence_interval = self._calculate_confidence_interval(run_id) if avg_rtt else (None, None)
+                    monitor_run = MonitorRun(run_id, timestamp, bool(reachable), http_status, error_code or "",
                                         ssl_expiration is not None, ssl_expiration or "", avg_rtt, median_rtt, confidence_interval)
-                monitor_runs.append(monitor_run)
-            return monitor_runs
-        except sqlite3.Error as e:
-            raise Exception(f"Database error in getRecent: {e}")
+                    monitor_runs.append(monitor_run)
+                return monitor_runs
+            except sqlite3.Error as e:
+                raise Exception(f"Database error in getRecent: {e}")
 
     def getRunById(self, run_id: int):
         """
@@ -315,3 +308,4 @@ class DatabaseHandle:
             return (mean - margin_of_error, mean + margin_of_error)
         except sqlite3.Error:
             return (None, None)
+'''

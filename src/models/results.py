@@ -53,26 +53,7 @@ class RTTResult:
         self.confidence90Interval = (None, None)
         pass
 
-    def calculateConfidenceInterval(self) -> None:
-        """
-        Computes the 90% confidence interval from self.measurements
-        and stores it in self.confidence90Interval.
-        # TODO: implement using mean, std deviation, and t-distribution or z-score
-        """
-        n = self.count
-        mean = self.average
-        stddev = (sum((x - mean) ** 2 for x in self.measurements) / (n - 1)) ** 0.5  # sample standard deviation
-        zScore = 1.645  # z-score for 90% confidence
-        marginOfError = zScore * (stddev / (n ** 0.5))
-        lower = mean - marginOfError
-        upper = mean + marginOfError
-        self.confidence90Interval = (lower, upper)
-        pass
 
-    def __repr__(self):
-        # TODO: return readable string like <RTTResult count=100 avg=42.3ms>
-        return f"<RTTResult count={self.count} avg={self.average:.2f}ms>"
-        pass
 
 
 class SSLResult:

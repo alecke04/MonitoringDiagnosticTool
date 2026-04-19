@@ -39,5 +39,27 @@ def check(url: str) -> "SSLResult":
 
     except ssl.SSLError:
         return SSLResult(isValid=False, expirationDate="Unknown")
+    def run_check(self, server_address: str) -> None:
 
+        server_address = _ensure_https(server_address)
+
+        # if up: measure RTT + validate SSL, save to DB
+        avail_result = self.checkAvailability(server_address)
+            if avail_result.isUp:
+                rttResult = self.measureRTT(server_address)
+                sslResult = self.checkSSL(server_address)
+
+                if not sslResult.isValid:
+                    print(f"SSL certificate for {server_address} is invalid. Generating report.")
+                    self.generateSendReport(server_address, run_id)
+            else:
+                print(f"{server_address} is down. Retrying with increasing frequency.")
+                retryResult = self.waitRetryAvailability(server_address)
+                if retryResult.isUp:
+                    print(f"{server_address} is back up after retry. Saving result to DB.")
+                else:
+                    print(f"{server_address} is still down after retries. Generating report.")
+                    run_id = self.db.saveResult(server_address, retryResult, None, None)
+                    self.generateSendReport(server_address, run_id)
+        pass
     pass
