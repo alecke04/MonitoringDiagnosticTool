@@ -27,7 +27,7 @@ class TestEntry(DbClass):
         self.exc_text = exc_text
 
     @classmethod
-    def from_raw_data(cls, server:str, result:tuple[bool, Exception] | tuple[bool, list[float]]):
+    def from_raw_data(cls, server:str, result:tuple[bool, Exception | list[float]]):
         if result[0]:
             data_list = result[1]
             return TestEntry(server, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), data_list[0], data_list[1], data_list[2], data_list[3], data_list[4], "")
