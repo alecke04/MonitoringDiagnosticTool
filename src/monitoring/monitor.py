@@ -63,13 +63,14 @@ class MonitoringSystem:
             return True, response
         except requests.exceptions.SSLError as e:
             return False , Exception(["NONE", "certificate verify failed: certificate has expired" ])
+        except requests.exceptions.ConnectTimeout as e:
+            return False , Exception(["NONE", "connect timeout"])
         except Exception as e:
             return False, e
 
     def measure_rtt(self, url, samples: int = 100) -> list[float]:
         """
         Returns rtt time for 100 requests to specific url
-
         throws exception if any error is encountered
         """
         measurements = []

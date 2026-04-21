@@ -15,7 +15,7 @@ import time
 #from SCons.Tool.ninja_tool.ninja_scons_daemon import server_thread
 # server = "expired-rsa-dv.ssl.com"
 # server = "http://google.com/404"
-server = "https://school.sidolaboratories.com/"
+server = "https://expired.badssl.com/"
 
 def run_test() -> None:
     """
@@ -55,8 +55,9 @@ def run_retry() -> None:
     db.save_result(server, result)
 
     past_results = db.get_recent(10, server)
-    if result[0] or not past_results[2].is_success:
-    #if result[0] or past_results[0]:
+
+    #only send an email if the error still persists and the problem has not been reported previously
+    if result[0] or  (len(past_results) >= 3 and not past_results[2].is_success):
         print("no email send early exit")
         return
 

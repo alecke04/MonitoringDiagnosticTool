@@ -13,7 +13,8 @@ class TestEntry(DbClass):
         "median": "REAL",
         "std_dev": "REAL",
         "ci_low": "REAL",
-        "ci_high": "REAL, PRIMARY KEY (url, date)",
+        "ci_high": "REAL, "
+        "PRIMARY KEY (url, date)",
     }
 
     def __init__(self, url, date, mean, median, std_dev, ci_low, ci_high, exc_text):
