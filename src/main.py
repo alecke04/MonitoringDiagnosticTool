@@ -13,12 +13,16 @@ import time
 
 
 #from SCons.Tool.ninja_tool.ninja_scons_daemon import server_thread
+# server = "expired-rsa-dv.ssl.com"
+# server = "http://google.com/404"
+server = "https://school.sidolaboratories.com/"
 
 def run_test() -> None:
+    """
+    function to run the test, store results in database and run retry mode if it fails
+    """
     monitoring_system = MonitoringSystem()
-    #server = "expired-rsa-dv.ssl.com"
-    #server = "http://google.com/404"
-    server = "https://httpbin.io/delay/60"
+
     result = monitoring_system.run_check(server)
 
     if result[0]:
@@ -30,10 +34,14 @@ def run_test() -> None:
     if result[0]:
         return
     else:
-        run_retry(server)
+        run_retry()
 
 
-def run_retry(server:str) -> None:
+def run_retry() -> None:
+    """
+    function to run retry mode in case first try failed
+    """
+    #sleep(300) #5 min wait used for regular operation
     sleep(300)
 
     monitoring_system = MonitoringSystem()
@@ -47,13 +55,33 @@ def run_retry(server:str) -> None:
     db.save_result(server, result)
 
     past_results = db.get_recent(10, server)
-
-    if result[0]:
+    if result[0] or not past_results[2].is_success:
     #if result[0] or past_results[0]:
         print("no email send early exit")
         return
 
     NotificationService().generate_and_send_report(results=past_results, server_url=server, http_code=result[1].args[0][0], http_description=result[1].args[0][1], )
+
+def generate_report() -> None:
+    """
+    function to generate report from past results
+    """
+    db = DatabaseHandle("./data.db")
+    past_results = db.get_recent(10, server)
+    NotificationService().generate_and_send_report(results=past_results, server_url=server,http_code="NONE - REPORT",http_description="NONE - REPORT" )
+
+def debug() -> None:
+    """
+    function to experiment with, debugging mode
+    """
+    db = DatabaseHandle("./data.db")
+    past_results = db.get_recent(10, server)
+    print(past_results[0])
+    print(type(past_results[1]))
+    print(past_results[1])
+    print(past_results[1].is_success)
+    print(past_results[2])
+    print(past_results[2].is_success)
 
 def main():
     """
@@ -72,7 +100,9 @@ def main():
     elif args.mode == "run_test":
         run_test()
     elif args.mode == "generate_report":
-        pass
+        generate_report()
+    elif args.mode == "debug":
+        debug()
     else:
         print("invalid mode")
 

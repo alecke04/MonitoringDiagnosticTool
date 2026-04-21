@@ -80,3 +80,7 @@ class TestEntry(DbClass):
             return f"Test for server {self.url} failed at {self.date}, with {self.exc_text}"
         else:
             return f"Test for server {self.url} succeeded at {self.date}, with mean {self.mean}, median {self.std_dev}, std_dev {self.std_dev} ci_low {self.ci_low} ci_high {self.ci_high}"
+
+    @property
+    def is_success(self) -> bool:
+        return not self.exc_text
