@@ -8,6 +8,9 @@ import statistics
 from datetime import datetime
 
 import requests
+from numpy.f2py.auxfuncs import throw_error
+
+
 #from src.models.results import AvailResult, RTTResult, SSLResult
 #from src.models import WebServer
 #from src.notifications.email_service import NotificationService
@@ -36,13 +39,11 @@ class MonitoringSystem:
         notificationService (NotificationService): Service for sending alert emails
     """
 
-    def __init__(self, timeout_duration: int = 5, retry_delay_minutes: int = 5, max_retries: int = 3):
+    def __init__(self, timeout_duration: int = 1):
         # TODO: assign parameters to self
         # TODO: instantiate self.db = DatabaseHandle(...)
         # TODO: instantiate self.notificationService = NotificationService(...)
         self.timeout_duration = timeout_duration
-        self.retry_delay_minutes = retry_delay_minutes
-        self.max_retries = max_retries
 
         #config = load_config()
         
@@ -55,16 +56,17 @@ class MonitoringSystem:
 
     def run_check(self, server_address: str) -> tuple[bool, Exception | list[float]]:
         server_address = _ensure_https(server_address)
-        server_address = "https://git.sidolaboratories.com/ioJOEg"
 
         try:
             response = self.measure_rtt(server_address)
             print(response)
             return True, response
+        except requests.exceptions.SSLError as e:
+            return False , Exception(["NONE", "certificate verify failed: certificate has expired" ])
         except Exception as e:
             return False, e
 
-    def measure_rtt(self, url, samples: int = 5) -> list[float]:
+    def measure_rtt(self, url, samples: int = 100) -> list[float]:
         """
         Returns rtt time for 100 requests to specific url
 
@@ -73,6 +75,9 @@ class MonitoringSystem:
         measurements = []
         for i in range(samples):
             response = requests.get(url, timeout=self.timeout_duration)
-            measurements.append(response.elapsed.total_seconds())
 
+            if not (response.status_code in range(200, 299)):
+                raise Exception([response.status_code, response.reason])
+
+            measurements.append(response.elapsed.total_seconds())
         return measurements

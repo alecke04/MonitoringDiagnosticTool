@@ -14,10 +14,11 @@ import time
 
 #from SCons.Tool.ninja_tool.ninja_scons_daemon import server_thread
 
-server = "https://git.sidolaboratories.com/ioJOEg"
-monitoring_system = MonitoringSystem()
-
 def run_test() -> None:
+    monitoring_system = MonitoringSystem()
+    #server = "expired-rsa-dv.ssl.com"
+    #server = "http://google.com/404"
+    server = "https://httpbin.io/delay/60"
     result = monitoring_system.run_check(server)
 
     if result[0]:
@@ -29,11 +30,13 @@ def run_test() -> None:
     if result[0]:
         return
     else:
-        run_retry()
+        run_retry(server)
 
 
-def run_retry() -> None:
+def run_retry(server:str) -> None:
     sleep(300)
+
+    monitoring_system = MonitoringSystem()
 
     result = monitoring_system.run_check(server)
 
@@ -45,11 +48,12 @@ def run_retry() -> None:
 
     past_results = db.get_recent(10, server)
 
-    if result[0] or past_results[0]:
+    if result[0]:
+    #if result[0] or past_results[0]:
+        print("no email send early exit")
         return
 
-    NotificationService().generate_and_send_report(results=past_results, server_url=server, http_code=000,
-                                                   http_description="NO TEXT YET", )
+    NotificationService().generate_and_send_report(results=past_results, server_url=server, http_code=result[1].args[0][0], http_description=result[1].args[0][1], )
 
 def main():
     """

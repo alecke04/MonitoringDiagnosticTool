@@ -50,10 +50,10 @@ class DatabaseHandle:
         with self.lock:
             conn = sqlite3.connect(self.db_path)
 
-            query = f"SELECT url, date FROM {TestEntry.__name__} ORDER BY date DESC LIMIT ?"
+            query = f"SELECT url, date FROM {TestEntry.__name__}  WHERE url = ? ORDER BY date DESC LIMIT ?"
 
             cursor = conn.cursor()
-            cursor.execute(query, (number,))
+            cursor.execute(query, (server, number))
             rows = cursor.fetchall()
 
             data = []
