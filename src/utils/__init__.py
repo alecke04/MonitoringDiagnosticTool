@@ -1,2 +1,2 @@
 # utils package
-from .config import load_config
+from .analysis import analyse

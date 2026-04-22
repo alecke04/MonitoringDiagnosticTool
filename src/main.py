@@ -1,14 +1,25 @@
 # main.py — application entry point
 # Parses CLI arguments and dispatches to the appropriate commands
 # Run with: python src/main.py <command> [args]
+import argparse
+from time import sleep
 
-# TODO: import argparse
-# TODO: from src.database.db_handle import DatabaseHandle
-# TODO: from src.monitoring.monitor import MonitoringSystem
-# TODO: from src.utils.config import load_config
-# TODO: import schedule, time  (for the monitoring loop)
+from database import DatabaseHandle
+
+from monitoring import *
+from utils.analysis import analyse
+from notifications.email_service import NotificationService
+import time
 
 
+<<<<<<< HEAD
+#from SCons.Tool.ninja_tool.ninja_scons_daemon import server_thread
+# server = "expired-rsa-dv.ssl.com"
+# server = "http://google.com/404"
+server = "https://expired.badssl.com/"
+
+def run_test() -> None:
+=======
 import argparse
 import os
 import schedule
@@ -21,41 +32,74 @@ from src.utils.config import load_config
 
 
 def cmd_add(args) -> None:
+>>>>>>> main
     """
-    Adds a new web server to the monitoring list.
-    Usage: python src/main.py add <url> <email>
+    function to run the test, store results in database and run retry mode if it fails
+    """
+<<<<<<< HEAD
+    monitoring_system = MonitoringSystem()
 
-    # TODO: create WebServer object from args.url and args.email
-    #        call db.addTarget(server) to persist it
-    #        print confirmation
-    """
+    result = monitoring_system.run_check(server)
+
+    if result[0]:
+        result =  True, analyse(result[1])
+
+    db = DatabaseHandle("./data.db")
+    db.save_result(server, result)
+
+    if result[0]:
+        return
+    else:
+        run_retry()
+=======
     web_server = WebServer(url=args.url, email=args.email)
     db = DatabaseHandle()
     db.addTarget(web_server, email_recipient=args.email)
     print(f"Added {args.url} with notification email {args.email} to monitoring list.")
+>>>>>>> main
 
 
-def cmd_remove(args) -> None:
+def run_retry() -> None:
     """
-    Removes a server from the monitoring list by its ID.
-    Usage: python src/main.py remove <id>
-
-    # TODO: call db.removeTarget(args.id)
-    #        print confirmation
+    function to run retry mode in case first try failed
     """
+<<<<<<< HEAD
+    #sleep(300) #5 min wait used for regular operation
+    sleep(300)
+=======
     db = DatabaseHandle()
     db.removeTarget(args.id)
     print(f"Removed server with ID {args.id} from monitoring list.")
+>>>>>>> main
 
+    monitoring_system = MonitoringSystem()
 
-def cmd_list(args) -> None:
+    result = monitoring_system.run_check(server)
+
+    if result[0]:
+        result = True, analyse(result[1])
+
+    db = DatabaseHandle("./data.db")
+    db.save_result(server, result)
+
+    past_results = db.get_recent(10, server)
+
+    #only send an email if the error still persists and the problem has not been reported previously
+    if result[0] or  (len(past_results) >= 3 and not past_results[2].is_success):
+        print("no email send early exit")
+        return
+
+    NotificationService().generate_and_send_report(results=past_results, server_url=server, http_code=result[1].args[0][0], http_description=result[1].args[0][1], )
+
+def generate_report() -> None:
     """
-    Displays all currently monitored servers in a formatted table.
-    Usage: python src/main.py list
-
-    # TODO: call db.getAllTargets()
-    #        print table with ID, URL, Email, latest Status
+    function to generate report from past results
     """
+<<<<<<< HEAD
+    db = DatabaseHandle("./data.db")
+    past_results = db.get_recent(10, server)
+    NotificationService().generate_and_send_report(results=past_results, server_url=server,http_code="NONE - REPORT",http_description="NONE - REPORT" )
+=======
     db = DatabaseHandle()
     servers = db.getAllTargets()
     print(f"{'ID':<5} {'URL':<30} {'Email':<30} {'Latest Status':<15}")
@@ -66,15 +110,22 @@ def cmd_list(args) -> None:
         if latest_runs and len(latest_runs) > 0:
             latest_status = "UP" if latest_runs[0].reachable else "DOWN"
         print(f"{server.id:<5} {server.url:<30} {server.email:<30} {latest_status:<15}")
+>>>>>>> main
 
-
-def cmd_status(args) -> None:
+def debug() -> None:
     """
-    Shows the latest monitoring result for a specific server.
-    Usage: python src/main.py status <id>
-
-    # TODO: call db.getRecent(number=1, server) and print the result
+    function to experiment with, debugging mode
     """
+<<<<<<< HEAD
+    db = DatabaseHandle("./data.db")
+    past_results = db.get_recent(10, server)
+    print(past_results[0])
+    print(type(past_results[1]))
+    print(past_results[1])
+    print(past_results[1].is_success)
+    print(past_results[2])
+    print(past_results[2].is_success)
+=======
     db = DatabaseHandle()
     servers = db.getAllTargets()
     target_server = None
@@ -185,11 +236,32 @@ def cmd_init_db(args) -> None:
     db = DatabaseHandle()
     print("Database initialized successfully.")
 
+>>>>>>> main
 
 def main():
     """
     Parses command-line arguments and calls the appropriate command function.
     """
+<<<<<<< HEAD
+
+    parser = argparse.ArgumentParser(description="program to load and assess model")
+
+    desc_mode = "define the current mode"
+    parser.add_argument("mode", type=str, help=desc_mode)
+
+    args = parser.parse_args()
+
+    if args.mode == "help":
+        print("help page")
+    elif args.mode == "run_test":
+        run_test()
+    elif args.mode == "generate_report":
+        generate_report()
+    elif args.mode == "debug":
+        debug()
+    else:
+        print("invalid mode")
+=======
     # TODO: create argparse.ArgumentParser
     # TODO: add subparsers for: add, remove, list, status, history, start, stop
     # TODO: add --init-db flag
@@ -233,6 +305,7 @@ def main():
         args.func(args)
     else:
         parser.print_help()
+>>>>>>> main
 
 
 if __name__ == "__main__":

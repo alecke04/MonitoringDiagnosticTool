@@ -4,6 +4,15 @@ A self-contained monitoring and diagnostics tool that provides routine health ch
 
 ---
 
+## How to Install
+1. python -m venv .venv
+2. source .venv/bin/activate
+3. pip install filelock requests 
+
+## How to Run
+1. Complete How to install if not done already
+2. source .venv/bin/activate
+
 ## Features
 
 - **Availability Monitoring** — Periodic HTTP/HTTPS checks to verify server reachability
