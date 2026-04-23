@@ -1,0 +1,25 @@
+# Monitoring & Diagnostic Tool - Requirements
+# Python 3.9+
+# Generated: April 23, 2026
+
+# Core HTTP/Network
+requests>=2.31.0,<3.0.0          # Server availability checks and RTT measurement
+
+# Environment Configuration
+python-dotenv>=1.0.0,<2.0.0      # Load SMTP credentials and config from .env file
+
+# Report Generation & Encryption
+pyzipper>=0.3.6,<1.0.0           # AES-256 encrypted, password-protected ZIP archives
+
+# Task Scheduling
+schedule>=1.2.0,<2.0.0           # Monitor scheduling at configurable intervals
+
+# Numerical Computing
+numpy>=1.24.0,<2.0.0             # Numerical analysis and statistics
+
+# Optional: Development & Testing
+# pytest>=7.4.0                   # Unit testing framework
+# pytest-cov>=4.1.0               # Code coverage for pytest
+# black>=23.0.0                   # Code formatting
+# flake8>=6.0.0                   # Code linting
+# mypy>=1.5.0                     # Static type checking
