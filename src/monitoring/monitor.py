@@ -65,6 +65,8 @@ class MonitoringSystem:
             return False , Exception(["NONE", "certificate verify failed: certificate has expired" ])
         except requests.exceptions.ConnectTimeout as e:
             return False , Exception(["NONE", "connect timeout"])
+        except requests.exceptions.ConnectionError as e:
+            return False , Exception(["NONE", "ConnectionError Failed to resolve, Name or service not known "])
         except Exception as e:
             return False, e
 
