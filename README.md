@@ -5,14 +5,13 @@ A self-contained monitoring and diagnostics tool that provides routine health ch
 ---
 
 ## How to Install
-1. `python -m venv .venv`
-2. `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Linux/macOS)
-3. `pip install -r requirements.txt`
+1. python -m venv .venv
+2. source .venv/bin/activate
+3. pip install filelock requests 
 
 ## How to Run
-1. Complete the installation steps above
-2. Activate the virtual environment: `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Linux/macOS)
-3. Execute: `python src/main.py --help` for available commands
+1. Complete How to install if not done already
+2. source .venv/bin/activate
 
 ## Features
 
@@ -32,46 +31,70 @@ A self-contained monitoring and diagnostics tool that provides routine health ch
 ```
 MonitoringDiagnosticTool/
 │
-├── README.md                        # Project overview
-├── requirements.txt                 # Python dependencies (auto-generated)
-├── cron_setip.txt                   # Cron configuration file
-│
-├── docs/                            # Additional documentation
-│   ├── setup_guide.md               # Setup and installation guide
-│   ├── SRS.md                       # Software Requirements Specification
-│   ├── SDS.md                       # Software Design Specification
-│   ├── CHANGELOG.md                 # Revision history for SDS & SRS
-│   └── requirements.txt             # Archived requirements reference
+├── README.md
+├── docs/                             # Additional documentation
+│   ├── setup_guide.md                   
+│   ├── SRS.md                        # Software Requirements Specification
+│   ├──SDS.md                         # Software Design Specification
+│   ├── CHANGELOG.md                  # Revision history for SDS & SRS
+│   ├── requirements.txt              # Python dependencies
+│   └── .env.example                  # Example environment variables (SMTP credentials)
+├── .gitignore                       
 │
 ├── src/                             # Source code folder
 │   ├── __init__.py
 │   ├── main.py                      # Application entry point
-│   │
 │   ├── monitoring/                  # Monitoring module
 │   │   ├── __init__.py
-│   │   └── monitor.py               # MonitoringSystem class & availability checks
+│   │   ├── monitor.py               # MonitoringSystem class
+│   │   ├── availability.py          # Availability checking logic
+│   │   ├── rtt.py                   # RTT measurement logic
+│   │   └── ssl_check.py             # SSL certificate validation
 │   │
 │   ├── notifications/               # Notification module
 │   │   ├── __init__.py
 │   │   ├── email_service.py         # Email sending via SMTP
-│   │   └── report_generator_encrypt.py  # Report generation and encryption
+│   │   └── report_generator.py      # Report generation and encryption
 │   │
 │   ├── database/                    # Database module
 │   │   ├── __init__.py
-│   │   ├── db_class.py              # Abstract DbClass (base class)
 │   │   ├── db_handle.py             # DatabaseHandle class (SQLite operations)
-│   │   └── test_entry.py            # Test database entries
+│   │   └── schema.sql               # Database schema definition
+│   │
+│   ├── models/                      # Data models
+│   │   ├── __init__.py
+│   │   ├── web_server.py            # WebServer model
+│   │   ├── monitor_run.py           # MonitorRun model
+│   │   ├── monitor_history.py       # MonitorHistory model
+│   │   └── results.py               # AvailResult, RTTResult, SSLResult
 │   │
 │   └── utils/                       # Utility functions
 │       ├── __init__.py
-│       └── analysis.py              # Data analysis utilities
+│       ├── config.py                # Configuration loader
+│       └── encryption.py            # AES-256 encryption utilities
+│
+├── tests/                           # Test suite
+│   ├── __init__.py
+│   ├── test_availability.py         # Availability monitoring tests
+│   ├── test_rtt.py                  # RTT measurement tests
+│   ├── test_ssl.py                  # SSL validation tests
+│   ├── test_database.py             # Database operation tests
+│   ├── test_notifications.py        # Email and report tests
+│   └── test_integration.py          # End-to-end integration tests
 │
 ├── diagrams/                        # Design diagrams (referenced in SDS/SRS)
+│   ├── architecture_diagram.png     # System architecture diagram
+│   ├── class_diagram.png            # UML class diagram
+│   ├── activity_diagram.png         # Activity flow diagram
+│   ├── use_case_diagram.png         # Use case diagram
+│   └── database_erd.png             # Entity-Relationship Diagram
 │
 ├── data/                            # Runtime data (gitignored)
 │   └── monitor.db                   # SQLite database (created at runtime)
 │
 ├── reports/                         # Generated reports (gitignored)
+│   └── .gitkeep
+│
 │
 └── documentation_logs/              # Team work logs
     ├── Alec/
@@ -112,42 +135,24 @@ MonitoringDiagnosticTool/
 
 3. **Install dependencies:**
    ```bash
-   pip install -r requirements.txt
+   pip install -r docs/requirements.txt
    ```
 
 4. **Configure environment variables:**
-   Create a `.env` file in the project root with your credentials:
-   ```env
-   GMAIL_SENDER=your-email@gmail.com
-   GMAIL_SENDER_PASSWORD=your-app-password
-   FILE_PASSWORD=your-report-archive-password
-   ```
-
-5. **Run the application:**
    ```bash
-   python src/main.py --help
+   cp docs/.env.example .env
+   ```
+   Edit `.env` with your SMTP credentials and report password:
+   ```env
+   SMTP_EMAIL=your-email@gmail.com
+   SMTP_PASSWORD=your-app-password
+   REPORT_PASSWORD=your-report-archive-password
    ```
 
----
-
-## Environment Variables
-
-The application requires the following environment variables to be set in a `.env` file at the project root:
-
-| Variable | Description | Example |
-|---|---|---|
-| `GMAIL_SENDER` | Gmail address for sending notifications | `your-email@gmail.com` |
-| `GMAIL_SENDER_PASSWORD` | Gmail app-specific password | `abcd efgh ijkl mnop` |
-| `FILE_PASSWORD` | Password for encrypting diagnostic reports | `SecurePassword123!` |
-
-**Create `.env` file:**
-```env
-GMAIL_SENDER=your-email@gmail.com
-GMAIL_SENDER_PASSWORD=your-app-password
-FILE_PASSWORD=your-report-archive-password
-```
-
-> **Note:** Keep your `.env` file secure and never commit it to version control. The `.env` file is listed in `.gitignore`.
+5. **Initialize the database:**
+   ```bash
+   python src/main.py --init-db
+   ```
 
 ---
 
