@@ -23,3 +23,5 @@ numpy>=1.24.0,<2.0.0             # Numerical analysis and statistics
 # black>=23.0.0                   # Code formatting
 # flake8>=6.0.0                   # Code linting
 # mypy>=1.5.0                     # Static type checking
+
+filelock
