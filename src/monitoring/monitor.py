@@ -8,16 +8,15 @@ import statistics
 from datetime import datetime
 
 import requests
-from numpy.f2py.auxfuncs import throw_error
 
 
-#from src.models.results import AvailResult, RTTResult, SSLResult
-#from src.models import WebServer
-#from src.notifications.email_service import NotificationService
-#from src.utils.config import load_config
+# from src.models.results import AvailResult, RTTResult, SSLResult
+# from src.models import WebServer
+# from src.notifications.email_service import NotificationService
+# from src.utils.config import load_config
 
 
-def _ensure_https(url:str) -> str:
+def _ensure_https(url: str) -> str:
     if url.startswith("https://"):
         return url
 
@@ -45,14 +44,14 @@ class MonitoringSystem:
         # TODO: instantiate self.notificationService = NotificationService(...)
         self.timeout_duration = timeout_duration
 
-        #config = load_config()
-        
-        #self.notificationService = NotificationService(
+        # config = load_config()
+
+        # self.notificationService = NotificationService(
         #    reportPassword=config.get("REPORT_PASSWORD"),
         #    senderEmail=config.get("SMTP_EMAIL"),
         #    senderPassword=config.get("SMTP_PASSWORD"),
         #    db=self.db
-        #)
+        # )
 
     def run_check(self, server_address: str) -> tuple[bool, Exception | list[float]]:
         server_address = _ensure_https(server_address)
@@ -62,9 +61,11 @@ class MonitoringSystem:
             print(response)
             return True, response
         except requests.exceptions.SSLError as e:
-            return False , Exception(["NONE", "certificate verify failed: certificate has expired" ])
+            return False, Exception(["NONE", "certificate verify failed: certificate has expired"])
         except requests.exceptions.ConnectTimeout as e:
-            return False , Exception(["NONE", "connect timeout"])
+            return False, Exception(["NONE", "connect timeout"])
+        except requests.exceptions.ConnectionError as e:
+            return False, Exception(["NONE", "ConnectionError Failed to resolve, Name or service not known "])
         except Exception as e:
             return False, e
 
