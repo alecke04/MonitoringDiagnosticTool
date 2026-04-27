@@ -12,7 +12,9 @@ A self-contained monitoring and diagnostics tool that provides routine health ch
 ## How to Run
 1. Complete the installation steps above
 2. Activate the virtual environment: `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Linux/macOS)
-3. Execute: `python src/main.py --help` for available commands
+3. Create .env file (more details below)
+3. Execute: `python src/main.py run_test` to trigger one monitoring cycle
+4. Execute: `python src/main.py generate_report` for sending a report of the current status
 
 ## Features
 
@@ -134,11 +136,12 @@ MonitoringDiagnosticTool/
 
 The application requires the following environment variables to be set in a `.env` file at the project root:
 
-| Variable | Description | Example |
-|---|---|---|
-| `GMAIL_SENDER` | Gmail address for sending notifications | `your-email@gmail.com` |
-| `GMAIL_SENDER_PASSWORD` | Gmail app-specific password | `abcd efgh ijkl mnop` |
-| `FILE_PASSWORD` | Password for encrypting diagnostic reports | `SecurePassword123!` |
+| Variable | Description                                | Example                  |
+|---|--------------------------------------------|--------------------------|
+| `GMAIL_SENDER` | Gmail address for sending notifications    | `your-email@gmail.com`   |
+| `GMAIL_SENDER_PASSWORD` | Gmail app-specific password                | `abcd efgh ijkl mnop`    |
+| `FILE_PASSWORD` | Password for encrypting diagnostic reports | `SecurePassword123!`     |
+| `RECEIVER_EMAIL` | email adress for the reciever              | `other-email@gmail.com!` |
 
 **Create `.env` file:**
 ```env

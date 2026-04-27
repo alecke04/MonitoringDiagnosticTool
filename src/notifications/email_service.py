@@ -29,7 +29,7 @@ class NotificationService:
         load_dotenv()
         self.SenderEmail = os.getenv("GMAIL_SENDER")
         self.SenderPassword = os.getenv("GMAIL_SENDER_PASSWORD")
-        self.ReceiverEmail = ['pjark.sander@gmail.com']
+        self.ReceiverEmail = os.getenv("RECEIVER_EMAIL")
         self.File_Password = os.getenv("FILE_PASSWORD")
 
 
