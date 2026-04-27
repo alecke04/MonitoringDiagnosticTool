@@ -12,7 +12,8 @@ A self-contained monitoring and diagnostics tool that provides routine health ch
 ## How to Run
 1. Complete the installation steps above
 2. Activate the virtual environment: `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Linux/macOS)
-3. Execute: `python src/main.py --help` for available commands
+3. Execute: `python src/main.py run_test` to run the program (will trigger one monitoring cycle)
+4. Execute: `python src/main.py generate_report` to send one report to the destination email adress
 
 ## Features
 
