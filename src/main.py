@@ -42,7 +42,7 @@ def run_retry() -> None:
     function to run retry mode in case first try failed
     """
     #sleep(300) #5 min wait used for regular operation
-    sleep(10)
+    sleep(300)
 
     monitoring_system = MonitoringSystem()
 
